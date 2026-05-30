@@ -1,0 +1,14 @@
+[Unit]
+Description=ZTIM Security Dashboard
+After=network.target suricata.service threat-engine.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/ztim-dashboard
+ExecStart=/usr/bin/python3 /root/ztim-dashboard/app.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
