@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZTIM Security Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.4/socket.io.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            background: #0a0e17;
+            color: #e0e0e0;
+            min-height: 100vh;
+        }
+        .header {
+            background: linear-gradient(135deg, #1a1f35, #0d1117);
+            border-bottom: 2px solid #00ff88;
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .header h1 {
+            color: #00ff88;
+            font-size: 22px;
+            letter-spacing: 1px;
+        }
+        .header .subtitle {
+            color: #888;
+            font-size: 12px;
+        }
+        .live-badge {
+            background: #ff0040;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 15px;
+            padding: 20px;
+        }
+        .card {
+            background: #111827;
+            border: 1px solid #1e293b;
+            border-radius: 10px;
+            padding: 18px;
+            overflow: hidden;
+        }
+        .card h2 {
+            color: #00ff88;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #1e293b;
+        }
+        .card.full-width {
+            grid-column: 1 / -1;
+        }
+        .card.two-col {
+            grid-column: span 2;
+        }
+        .status-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #1e293b;
+        }
+        .status-dot {
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        .status-dot.active { background: #00ff88; box-shadow: 0 0 6px #00ff88; }
+        .status-dot.inactive { background: #ff0040; box-shadow: 0 0 6px #ff0040; }
+        .status-dot.unknown { background: #ffaa00; }
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            grid-column: 1 / -1;
+        }
+        .stat-box {
+            background: #1a1f35;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+        .stat-box:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 255, 136, 0.15);
+        }
+        .stat-box.active-stat {
+            box-shadow: 0 0 0 2px #00ff88;
+        }
+        .stat-box .number {
+            font-size: 32px;
+            font-weight: bold;
+            color: #00ff88;
+        }
+        .stat-box .label {
+            font-size: 11px;
+            color: #888;
+            text-transform: uppercase;
+            margin-top: 4px;
+        }
+        .stat-box.danger .number { color: #ff0040; }
+        .stat-box.warning .number { color: #ffaa00; }
+        .alert-item {
+            padding: 10px;
+            margin-bottom: 6px;
+            background: #1a1f35;
+            border-radius: 6px;
+            border-left: 3px solid #00ff88;
+            font-size: 13px;
+            animation: fadeIn 0.3s ease;
+        }
+        .alert-item.severity-1 { border-left-color: #ff0040; }
+        .alert-item.severity-2 { border-left-color: #ffaa00; }
+        .alert-item.severity-3 { border-left-color: #00ff88; }
+        .alert-item .alert-time {
+            color: #666;
+            font-size: 11px;
+        }
+        .alert-item .alert-sig {
+            color: #fff;
+            font-weight: 500;
+            margin: 3px 0;
+        }
+        .alert-item .alert-ips {
+            color: #888;
+            font-size: 12px;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .feed-container {
+            max-height: 350px;
+            overflow-y: auto;
+        }
+        .feed-container::-webkit-scrollbar { width: 4px; }
+        .feed-container::-webkit-scrollbar-track { background: #111827; }
+        .feed-container::-webkit-scrollbar-thumb { background: #00ff88; border-radius: 2px; }
+        .flow-item {
+            padding: 8px 10px;
+            margin-bottom: 4px;
+            background: #1a1f35;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: #ff6b6b;
+            word-break: break-all;
+        }
+        .no-data {
+            color: #555;
+            font-style: italic;
+            padding: 20px;
+            text-align: center;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        th {
+            background: #1a1f35;
+            color: #00ff88;
+            padding: 10px;
+            text-align: left;
+            font-size: 11px;
+            text-transform: uppercase;
+        }
+        td {
+            padding: 8px 10px;
+            border-bottom: 1px solid #1e293b;
+        }
+        .table-container {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .detail-section {
+            grid-column: 1 / -1;
+            background: #111827;
+            border: 1px solid #00ff88;
+            border-radius: 10px;
+            padding: 18px;
+            display: none;
+        }
+        .detail-section.visible { display: block; }
+        .detail-section h2 {
+            color: #00ff88;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #1e293b;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .detail-close {
+            cursor: pointer;
+            color: #888;
+            font-size: 18px;
+            background: none;
+            border: none;
+        }
+        .detail-close:hover { color: #ff0040; }
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 12px;
+            margin-bottom: 6px;
+            background: #1a1f35;
+            border-radius: 6px;
+            font-size: 13px;
+        }
+        .detail-row .count-badge {
+            background: #00ff88;
+            color: #0a0e17;
+            padding: 2px 10px;
+            border-radius: 10px;
+            font-weight: bold;
+            font-size: 12px;
+        }
+        .detail-row .ip-text { font-family: 'Courier New', monospace; color: #e0e0e0; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div>
+            <h1>ZTIM Security Dashboard</h1>
+            <div class="subtitle">Zero-Trust Intelligent Monitoring — Real-Time Threat Analytics</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:16px;">
+            <span class="live-badge">&#9679; LIVE</span>
+            <a href="/logout" style="color:#888;text-decoration:none;font-size:13px;border:1px solid #1e293b;padding:6px 14px;border-radius:6px;">Logout</a>
+        </div>
+    </div>
+    <div class="grid">
+        <div class="stats-row">
+            <div class="stat-box" id="stat-total" onclick="showDetail('signatures')">
+                <div class="number" id="total-alerts">0</div>
+                <div class="label">Total Alerts</div>
+            </div>
+            <div class="stat-box danger" id="stat-blocked" onclick="showDetail('blocked')">
+                <div class="number" id="blocked-ips">0</div>
+                <div class="label">Blocked IPs</div>
+            </div>
+            <div class="stat-box warning" id="stat-sources" onclick="showDetail('sources')">
+                <div class="number" id="unique-sources">0</div>
+                <div class="label">Unique Sources</div>
+            </div>
+            <div class="stat-box" id="stat-services" onclick="showDetail('services')">
+                <div class="number" id="uptime">--</div>
+                <div class="label">Services Up</div>
+            </div>
+        </div>
+        <div class="detail-section" id="detail-section">
+            <h2>
+                <span id="detail-title">Details</span>
+                <button class="detail-close" onclick="hideDetail()">&times;</button>
+            </h2>
+            <div id="detail-body">
+                <div class="no-data">Loading...</div>
+            </div>
+        </div>
+        <div class="card">
+            <h2>Live Threat Feed</h2>
+            <div class="feed-container" id="live-feed">
+                <div class="no-data">Waiting for alerts...</div>
+            </div>
+        </div>
+        <div class="card">
+            <h2>System Health</h2>
+            <div id="system-health">
+                <div class="status-row">
+                    <span><span class="status-dot unknown" id="dot-suricata"></span>Suricata IDS</span>
+                    <span id="status-suricata">checking...</span>
+                </div>
+                <div class="status-row">
+                    <span><span class="status-dot unknown" id="dot-threat"></span>Threat Engine</span>
+                    <span id="status-threat">checking...</span>
+                </div>
+                <div class="status-row">
+                    <span><span class="status-dot unknown" id="dot-ovs"></span>Open vSwitch</span>
+                    <span id="status-ovs">checking...</span>
+                </div>
+            </div>
+        </div>
+        <div class="card">
+            <h2>Active Block Rules (OVS)</h2>
+            <div id="block-rules">
+                <div class="no-data">Loading...</div>
+            </div>
+        </div>
+        <div class="card full-width">
+            <h2>Connected Devices (OVS br-zt)</h2>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Port</th>
+                            <th>VLAN</th>
+                            <th>MAC Address</th>
+                            <th>Age (s)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="devices-table">
+                        <tr><td colspan="4" class="no-data">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card full-width">
+            <h2>Threat History</h2>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Source IP</th>
+                            <th>Dest IP</th>
+                            <th>Signature</th>
+                            <th>Category</th>
+                            <th>Severity</th>
+                            <th>Protocol</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-table">
+                        <tr><td colspan="7" class="no-data">No alerts recorded yet</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <script>
+        var socket = io();
+        socket.on("new_alert", function(alert) {
+            addAlertToFeed(alert);
+            addAlertToTable(alert);
+            updateStats();
+        });
+        function addAlertToFeed(alert) {
+            var feed = document.getElementById("live-feed");
+            if (feed.querySelector(".no-data")) feed.innerHTML = "";
+            var div = document.createElement("div");
+            div.className = "alert-item severity-" + alert.severity;
+            div.innerHTML = '<div class="alert-time">' + formatTime(alert.timestamp) + '</div>' +
+                '<div class="alert-sig">' + escapeHtml(alert.signature) + '</div>' +
+                '<div class="alert-ips">' + escapeHtml(alert.src_ip) + ' > ' + escapeHtml(alert.dest_ip) + ' | ' + escapeHtml(alert.protocol) + '</div>';
+            feed.insertBefore(div, feed.firstChild);
+            while (feed.children.length > 50) feed.removeChild(feed.lastChild);
+        }
+        function addAlertToTable(alert) {
+            var table = document.getElementById("history-table");
+            if (table.querySelector(".no-data")) table.innerHTML = "";
+            var row = document.createElement("tr");
+            row.innerHTML = '<td>' + formatTime(alert.timestamp) + '</td>' +
+                '<td>' + escapeHtml(alert.src_ip) + '</td>' +
+                '<td>' + escapeHtml(alert.dest_ip) + '</td>' +
+                '<td>' + escapeHtml(alert.signature) + '</td>' +
+                '<td>' + escapeHtml(alert.category) + '</td>' +
+                '<td>' + alert.severity + '</td>' +
+                '<td>' + escapeHtml(alert.protocol) + '</td>';
+            table.insertBefore(row, table.firstChild);
+        }
+        function updateStats() {
+            fetch("/api/threats").then(function(r) { return r.json(); }).then(function(data) {
+                document.getElementById("total-alerts").textContent = data.length;
+                var seen = {};
+                data.forEach(function(a) { seen[a.src_ip] = true; });
+                document.getElementById("unique-sources").textContent = Object.keys(seen).length;
+            });
+            fetch("/api/flows").then(function(r) { return r.json(); }).then(function(data) {
+                document.getElementById("blocked-ips").textContent = data.length;
+            });
+        }
+        function updateHealth() {
+            fetch("/api/status").then(function(r) { return r.json(); }).then(function(data) {
+                setStatus("suricata", data.suricata);
+                setStatus("threat", data.threat_engine);
+                setStatus("ovs", data.openvswitch);
+                var up = 0;
+                if (data.suricata === "active") up++;
+                if (data.threat_engine === "active") up++;
+                if (data.openvswitch === "active") up++;
+                document.getElementById("uptime").textContent = up + "/3";
+            });
+        }
+        function setStatus(name, status) {
+            var dot = document.getElementById("dot-" + name);
+            var label = document.getElementById("status-" + name);
+            dot.className = "status-dot " + (status === "active" ? "active" : "inactive");
+            label.textContent = status;
+        }
+        function updateFlows() {
+            fetch("/api/flows").then(function(r) { return r.json(); }).then(function(data) {
+                var container = document.getElementById("block-rules");
+                if (data.length === 0) {
+                    container.innerHTML = '<div class="no-data">No active block rules</div>';
+                } else {
+                    container.innerHTML = data.map(function(f) { return '<div class="flow-item">' + escapeHtml(f) + '</div>'; }).join("");
+                }
+            });
+        }
+        function loadHistory() {
+            fetch("/api/threats").then(function(r) { return r.json(); }).then(function(data) {
+                data.forEach(function(alert) { addAlertToTable(alert); });
+                updateStats();
+            });
+        }
+        function formatTime(ts) {
+            if (!ts) return "N/A";
+            try { var d = new Date(ts); return d.toLocaleTimeString(); }
+            catch(e) { return ts; }
+        }
+        function escapeHtml(text) {
+            var div = document.createElement("div");
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        var currentDetail = null;
+        function setActiveStat(id) {
+            ["stat-total", "stat-blocked", "stat-sources", "stat-services"].forEach(function(s) {
+                document.getElementById(s).classList.remove("active-stat");
+            });
+            if (id) document.getElementById(id).classList.add("active-stat");
+        }
+        function hideDetail() {
+            document.getElementById("detail-section").classList.remove("visible");
+            currentDetail = null;
+            setActiveStat(null);
+        }
+        function showDetail(type) {
+            if (currentDetail === type) { hideDetail(); return; }
+            currentDetail = type;
+            var section = document.getElementById("detail-section");
+            var title = document.getElementById("detail-title");
+            var body = document.getElementById("detail-body");
+            section.classList.add("visible");
+            body.innerHTML = '<div class="no-data">Loading...</div>';
+            if (type === "signatures") {
+                title.textContent = "Alerts by Signature";
+                setActiveStat("stat-total");
+                fetch("/api/analytics/signatures").then(function(r){return r.json();}).then(function(data){
+                    if (!data.length) { body.innerHTML = '<div class="no-data">No alerts recorded yet</div>'; return; }
+                    body.innerHTML = data.map(function(d){
+                        return '<div class="detail-row"><span>' + escapeHtml(d.signature) + '</span><span class="count-badge">' + d.count + '</span></div>';
+                    }).join("");
+                });
+            } else if (type === "blocked") {
+                title.textContent = "Blocked Source IPs";
+                setActiveStat("stat-blocked");
+                fetch("/api/analytics/blocked").then(function(r){return r.json();}).then(function(data){
+                    if (!data.length) { body.innerHTML = '<div class="no-data">No blocked IPs</div>'; return; }
+                    body.innerHTML = data.map(function(ip){
+                        return '<div class="detail-row"><span class="ip-text">' + escapeHtml(ip) + '</span><span class="count-badge">DROP</span></div>';
+                    }).join("");
+                });
+            } else if (type === "sources") {
+                title.textContent = "Alerts by Source IP";
+                setActiveStat("stat-sources");
+                fetch("/api/analytics/sources").then(function(r){return r.json();}).then(function(data){
+                    if (!data.length) { body.innerHTML = '<div class="no-data">No alerts recorded yet</div>'; return; }
+                    body.innerHTML = data.map(function(d){
+                        return '<div class="detail-row"><span class="ip-text">' + escapeHtml(d.src_ip) + '</span><span class="count-badge">' + d.count + '</span></div>';
+                    }).join("");
+                });
+            } else if (type === "services") {
+                title.textContent = "Service Status Detail";
+                setActiveStat("stat-services");
+                fetch("/api/analytics/services").then(function(r){return r.json();}).then(function(data){
+                    body.innerHTML = data.map(function(d){
+                        var color = d.status === "active" ? "#00ff88" : "#ff0040";
+                        return '<div class="detail-row"><span>' + escapeHtml(d.name) + ' <span style="color:#666">(' + escapeHtml(d.unit) + ')</span></span><span style="color:' + color + ';font-weight:bold">' + escapeHtml(d.status) + '</span></div>';
+                    }).join("");
+                });
+            }
+        }
+        function updateDevices() {
+            fetch("/api/devices").then(function(r){return r.json();}).then(function(data){
+                var table = document.getElementById("devices-table");
+                if (!data.length) {
+                    table.innerHTML = '<tr><td colspan="4" class="no-data">No devices learned yet</td></tr>';
+                    return;
+                }
+                table.innerHTML = data.map(function(d){
+                    return '<tr><td>' + escapeHtml(d.port) + '</td><td>' + escapeHtml(d.vlan) +
+                        '</td><td style="font-family:monospace">' + escapeHtml(d.mac) +
+                        '</td><td>' + escapeHtml(d.age) + '</td></tr>';
+                }).join("");
+            });
+        }
+        updateHealth();
+        updateFlows();
+        updateDevices();
+        loadHistory();
+        setInterval(updateHealth, 5000);
+        setInterval(updateFlows, 5000);
+        setInterval(updateDevices, 5000);
+    </script>
+</body>
+</html>
