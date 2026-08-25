@@ -241,6 +241,136 @@
             font-size: 12px;
         }
         .detail-row .ip-text { font-family: 'Courier New', monospace; color: #e0e0e0; }
+
+        /* Severity badges (feed + history table) */
+        .sev-badge {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .sev-badge.sev-1 { background: rgba(255, 0, 64, 0.15); color: #ff4d6d; border: 1px solid #ff0040; }
+        .sev-badge.sev-2 { background: rgba(255, 170, 0, 0.15); color: #ffaa00; border: 1px solid #ffaa00; }
+        .sev-badge.sev-3 { background: rgba(0, 255, 136, 0.15); color: #00ff88; border: 1px solid #00ff88; }
+        .sev-badge.sev-other { background: rgba(136, 136, 136, 0.15); color: #aaa; border: 1px solid #555; }
+
+        /* KPI Test Results panel */
+        .kpi-table th, .kpi-table td { vertical-align: middle; }
+        .kpi-id {
+            font-family: 'Courier New', monospace;
+            color: #00ff88;
+            font-weight: bold;
+        }
+        .kpi-outcome {
+            font-family: 'Courier New', monospace;
+            color: #e0e0e0;
+        }
+        .kpi-status {
+            display: inline-block;
+            padding: 3px 12px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+            background: rgba(0, 255, 136, 0.15);
+            color: #00ff88;
+            border: 1px solid #00ff88;
+        }
+        .kpi-status.fail {
+            background: rgba(255, 0, 64, 0.15);
+            color: #ff4d6d;
+            border: 1px solid #ff0040;
+        }
+        .kpi-note {
+            display: block;
+            color: #666;
+            font-size: 11px;
+            font-style: italic;
+            margin-top: 3px;
+        }
+
+        /* Enterprise device inventory */
+        .ent-summary {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        .ent-chip {
+            background: #1a1f35;
+            border: 1px solid #1e293b;
+            border-radius: 14px;
+            padding: 4px 12px;
+            font-size: 11px;
+            color: #aaa;
+        }
+        .ent-chip b { color: #00ff88; }
+        .ent-error {
+            color: #ffaa00;
+            font-size: 12px;
+            padding: 8px 0;
+        }
+        .dept-badge {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: bold;
+            border: 1px solid;
+        }
+        .dept-HR       { color: #4dabf7; border-color: #4dabf7; background: rgba(77,171,247,0.12); }
+        .dept-Finance  { color: #ffd43b; border-color: #ffd43b; background: rgba(255,212,59,0.12); }
+        .dept-IT       { color: #9775fa; border-color: #9775fa; background: rgba(151,117,250,0.12); }
+        .dept-Guest    { color: #ff922b; border-color: #ff922b; background: rgba(255,146,43,0.12); }
+        .dept-Server   { color: #00ff88; border-color: #00ff88; background: rgba(0,255,136,0.12); }
+        .dept-WAN      { color: #ff6b6b; border-color: #ff6b6b; background: rgba(255,107,107,0.12); }
+        .dept-Unknown  { color: #aaa;    border-color: #555;    background: rgba(136,136,136,0.12); }
+
+        /* Active Block Rules: parsed view + raw toggle */
+        .flow-toggle {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .flow-toggle button {
+            background: #1a1f35;
+            color: #888;
+            border: 1px solid #1e293b;
+            border-radius: 6px;
+            padding: 4px 12px;
+            font-size: 11px;
+            cursor: pointer;
+        }
+        .flow-toggle button.active {
+            color: #00ff88;
+            border-color: #00ff88;
+        }
+        .flow-parsed-row {
+            padding: 10px;
+            margin-bottom: 6px;
+            background: #1a1f35;
+            border-radius: 6px;
+            border-left: 3px solid #ff0040;
+        }
+        .flow-parsed-row .flow-src {
+            font-family: 'Courier New', monospace;
+            color: #ff6b6b;
+            font-weight: bold;
+            font-size: 13px;
+        }
+        .flow-parsed-row .flow-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 5px;
+            font-size: 11px;
+            color: #888;
+        }
+        .flow-parsed-row .flow-meta span b { color: #ccc; }
     </style>
 </head>
 <body>
@@ -282,6 +412,26 @@
                 <div class="no-data">Loading...</div>
             </div>
         </div>
+        <div class="card full-width">
+            <h2>KPI Test Results (Sprint 4)</h2>
+            <div class="table-container">
+                <table class="kpi-table">
+                    <thead>
+                        <tr>
+                            <th>Test Case</th>
+                            <th>Description</th>
+                            <th>Metric</th>
+                            <th>Result</th>
+                            <th>Outcome</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="kpi-table">
+                        <tr><td colspan="6" class="no-data">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
         <div class="card">
             <h2>Live Threat Feed</h2>
             <div class="feed-container" id="live-feed">
@@ -307,12 +457,41 @@
         </div>
         <div class="card">
             <h2>Active Block Rules (OVS)</h2>
-            <div id="block-rules">
+            <div class="flow-toggle">
+                <button id="flow-btn-parsed" class="active" onclick="setFlowView('parsed')">Clean view</button>
+                <button id="flow-btn-raw" onclick="setFlowView('raw')">Raw OVS output</button>
+            </div>
+            <div id="block-rules-parsed">
+                <div class="no-data">Loading...</div>
+            </div>
+            <div id="block-rules-raw" style="display:none;">
                 <div class="no-data">Loading...</div>
             </div>
         </div>
         <div class="card full-width">
-            <h2>Connected Devices (OVS br-zt)</h2>
+            <h2>Enterprise Device Inventory (pfSense — All VLANs)</h2>
+            <div id="ent-summary" class="ent-summary"></div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>IP Address</th>
+                            <th>Hostname</th>
+                            <th>MAC Address</th>
+                            <th>VLAN</th>
+                            <th>Department</th>
+                            <th>Interface</th>
+                            <th>Source</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ent-devices-table">
+                        <tr><td colspan="7" class="no-data">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card full-width">
+            <h2>Connected Devices (OVS br-zt — Server VLAN)</h2>
             <div class="table-container">
                 <table>
                     <thead>
@@ -358,12 +537,28 @@
             addAlertToTable(alert);
             updateStats();
         });
+        function severityBadge(sev) {
+            var labels = {1: "High", 2: "Medium", 3: "Low"};
+            var cls = (sev === 1 || sev === 2 || sev === 3) ? "sev-" + sev : "sev-other";
+            var label = labels[sev] || ("Sev " + sev);
+            return '<span class="sev-badge ' + cls + '">' + label + '</span>';
+        }
+        function formatDuration(totalSeconds) {
+            if (totalSeconds === null || totalSeconds === undefined || isNaN(totalSeconds)) return "N/A";
+            var s = Math.floor(totalSeconds);
+            var h = Math.floor(s / 3600);
+            var m = Math.floor((s % 3600) / 60);
+            var sec = s % 60;
+            if (h > 0) return h + "h " + m + "m " + sec + "s";
+            if (m > 0) return m + "m " + sec + "s";
+            return sec + "s";
+        }
         function addAlertToFeed(alert) {
             var feed = document.getElementById("live-feed");
             if (feed.querySelector(".no-data")) feed.innerHTML = "";
             var div = document.createElement("div");
             div.className = "alert-item severity-" + alert.severity;
-            div.innerHTML = '<div class="alert-time">' + formatTime(alert.timestamp) + '</div>' +
+            div.innerHTML = '<div class="alert-time">' + formatTime(alert.timestamp) + ' &nbsp;' + severityBadge(alert.severity) + '</div>' +
                 '<div class="alert-sig">' + escapeHtml(alert.signature) + '</div>' +
                 '<div class="alert-ips">' + escapeHtml(alert.src_ip) + ' > ' + escapeHtml(alert.dest_ip) + ' | ' + escapeHtml(alert.protocol) + '</div>';
             feed.insertBefore(div, feed.firstChild);
@@ -378,7 +573,7 @@
                 '<td>' + escapeHtml(alert.dest_ip) + '</td>' +
                 '<td>' + escapeHtml(alert.signature) + '</td>' +
                 '<td>' + escapeHtml(alert.category) + '</td>' +
-                '<td>' + alert.severity + '</td>' +
+                '<td>' + severityBadge(alert.severity) + '</td>' +
                 '<td>' + escapeHtml(alert.protocol) + '</td>';
             table.insertBefore(row, table.firstChild);
         }
@@ -411,9 +606,35 @@
             dot.className = "status-dot " + (status === "active" ? "active" : "inactive");
             label.textContent = status;
         }
+        var flowView = "parsed";
+        function setFlowView(view) {
+            flowView = view;
+            document.getElementById("flow-btn-parsed").classList.toggle("active", view === "parsed");
+            document.getElementById("flow-btn-raw").classList.toggle("active", view === "raw");
+            document.getElementById("block-rules-parsed").style.display = (view === "parsed") ? "block" : "none";
+            document.getElementById("block-rules-raw").style.display = (view === "raw") ? "block" : "none";
+        }
         function updateFlows() {
+            fetch("/api/flows/parsed").then(function(r) { return r.json(); }).then(function(data) {
+                var container = document.getElementById("block-rules-parsed");
+                if (data.length === 0) {
+                    container.innerHTML = '<div class="no-data">No active block rules</div>';
+                    return;
+                }
+                container.innerHTML = data.map(function(f) {
+                    return '<div class="flow-parsed-row">' +
+                        '<div class="flow-src">DROP &middot; ' + escapeHtml(f.src_ip || "unknown source") + '</div>' +
+                        '<div class="flow-meta">' +
+                            '<span>Packets: <b>' + (f.packets !== null ? f.packets : "N/A") + '</b></span>' +
+                            '<span>Bytes: <b>' + (f.bytes !== null ? f.bytes : "N/A") + '</b></span>' +
+                            '<span>Blocked for: <b>' + formatDuration(f.duration_s) + '</b></span>' +
+                            '<span>Priority: <b>' + (f.priority !== null ? f.priority : "N/A") + '</b></span>' +
+                        '</div>' +
+                    '</div>';
+                }).join("");
+            });
             fetch("/api/flows").then(function(r) { return r.json(); }).then(function(data) {
-                var container = document.getElementById("block-rules");
+                var container = document.getElementById("block-rules-raw");
                 if (data.length === 0) {
                     container.innerHTML = '<div class="no-data">No active block rules</div>';
                 } else {
@@ -421,9 +642,71 @@
                 }
             });
         }
+        function updateEnterpriseDevices() {
+            fetch("/api/devices/enterprise").then(function(r){return r.json();}).then(function(data){
+                var summaryEl = document.getElementById("ent-summary");
+                var table = document.getElementById("ent-devices-table");
+                var devices = data.devices || [];
+
+                var chips = "";
+                var summary = data.summary || {};
+                Object.keys(summary).forEach(function(dept){
+                    chips += '<span class="ent-chip">' + escapeHtml(dept) + ': <b>' + summary[dept] + '</b></span>';
+                });
+                if (data.error) {
+                    chips += '<span class="ent-error">' + escapeHtml(data.error) + '</span>';
+                }
+                summaryEl.innerHTML = chips;
+
+                if (!devices.length) {
+                    table.innerHTML = '<tr><td colspan="7" class="no-data">' +
+                        (data.error ? 'Unable to reach pfSense' : 'No devices found') + '</td></tr>';
+                    return;
+                }
+                table.innerHTML = devices.map(function(d){
+                    var dept = d.department || "Unknown";
+                    return '<tr>' +
+                        '<td style="font-family:monospace">' + escapeHtml(d.ip) + '</td>' +
+                        '<td>' + escapeHtml(d.hostname || "—") + '</td>' +
+                        '<td style="font-family:monospace">' + escapeHtml(d.mac || "—") + '</td>' +
+                        '<td>' + (d.vlan !== null && d.vlan !== undefined ? d.vlan : "—") + '</td>' +
+                        '<td><span class="dept-badge dept-' + escapeHtml(dept) + '">' + escapeHtml(dept) + '</span></td>' +
+                        '<td style="font-family:monospace">' + escapeHtml(d.interface || "—") + '</td>' +
+                        '<td>' + escapeHtml(d.source || "—") + '</td>' +
+                    '</tr>';
+                }).join("");
+            }).catch(function(){
+                document.getElementById("ent-devices-table").innerHTML =
+                    '<tr><td colspan="7" class="no-data">Inventory unavailable</td></tr>';
+            });
+        }
+        function loadKPI() {
+            fetch("/api/kpi").then(function(r) { return r.json(); }).then(function(data) {
+                var table = document.getElementById("kpi-table");
+                if (!data.length) {
+                    table.innerHTML = '<tr><td colspan="6" class="no-data">No KPI results recorded yet</td></tr>';
+                    return;
+                }
+                table.innerHTML = data.map(function(k) {
+                    var statusClass = k.status === "pass" ? "" : "fail";
+                    var noteHtml = k.note ? '<span class="kpi-note">' + escapeHtml(k.note) + '</span>' : "";
+                    return '<tr>' +
+                        '<td class="kpi-id">' + escapeHtml(k.id) + '</td>' +
+                        '<td>' + escapeHtml(k.name) + noteHtml + '</td>' +
+                        '<td>' + escapeHtml(k.metric) + '</td>' +
+                        '<td>' + escapeHtml(k.result) + '</td>' +
+                        '<td class="kpi-outcome">' + escapeHtml(k.outcome) + '</td>' +
+                        '<td><span class="kpi-status ' + statusClass + '">' + escapeHtml(k.status) + '</span></td>' +
+                    '</tr>';
+                }).join("");
+            });
+        }
         function loadHistory() {
             fetch("/api/threats").then(function(r) { return r.json(); }).then(function(data) {
                 data.forEach(function(alert) { addAlertToTable(alert); });
+                // data is newest-first; seed the live feed with the most recent
+                // entries too, so it isn't empty on load waiting for a brand-new event
+                data.slice(0, 20).reverse().forEach(function(alert) { addAlertToFeed(alert); });
                 updateStats();
             });
         }
@@ -512,10 +795,15 @@
         updateHealth();
         updateFlows();
         updateDevices();
+        updateEnterpriseDevices();
         loadHistory();
+        loadKPI();
         setInterval(updateHealth, 5000);
         setInterval(updateFlows, 5000);
         setInterval(updateDevices, 5000);
+        // pfSense inventory is SSH-backed and server-side cached for 60s,
+        // so poll less aggressively than the local OVS panels.
+        setInterval(updateEnterpriseDevices, 30000);
     </script>
 </body>
 </html>
