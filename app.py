@@ -1,11 +1,17 @@
 import json
 import os
+import re
 import subprocess
 import threading
 import time
 from functools import wraps
 from flask import Flask, render_template, jsonify, request, redirect, url_for, session
 from flask_socketio import SocketIO
+
+try:
+    import pfsense_devices
+except Exception:  # dashboard must still run if the collector is unavailable
+    pfsense_devices = None
 
 app = Flask(__name__)
 app.secret_key = "ztim-lab-secret-change-me"
@@ -33,6 +39,38 @@ OVS_BRIDGE = "br-zt"
 threat_history = []
 MAX_HISTORY = 500
 
+# ---- KPI test results (Sprint 4 evidence) ----
+# Update these values here as final KPI test numbers are confirmed for the
+# dissertation; the dashboard reads straight from this list, so there is
+# only one place to edit before the viva.
+KPI_RESULTS = [
+    {
+        "id": "TC1", "name": "Port Scan Detection", "metric": "MTTD",
+        "result": "3.75s", "outcome": "BLOCK", "status": "pass", "note": None,
+    },
+    {
+        "id": "TC2", "name": "Brute-Force Detection", "metric": "MTTD",
+        "result": "0.62s", "outcome": "BLOCK", "status": "pass", "note": None,
+    },
+    {
+        "id": "TC3", "name": "Lateral Movement Prevention", "metric": "Blocked",
+        "result": "18/18", "outcome": "100%", "status": "pass", "note": None,
+    },
+    {
+        "id": "TC4", "name": "Repeated Policy Violation (Cross-VLAN)", "metric": "Blocked",
+        "result": "30/30", "outcome": "100%", "status": "pass",
+        "note": "Measured via pfSense log correlation, since br-zt only observes Server VLAN traffic.",
+    },
+    {
+        "id": "TC5", "name": "False Positive Control", "metric": "FPR",
+        "result": "0%", "outcome": "PASS", "status": "pass", "note": None,
+    },
+    {
+        "id": "TC6", "name": "DNS Anomaly Detection", "metric": "MTTD",
+        "result": "1.28s", "outcome": "ALERT", "status": "pass", "note": None,
+    },
+]
+
 
 def get_ovs_flows():
     """Return current OVS drop rules (active block rules)."""
@@ -52,7 +90,6 @@ def get_ovs_flows():
 
 def get_blocked_ips():
     """Parse just the blocked source IPs out of the OVS drop flows."""
-    import re
     ips = []
     for flow in get_ovs_flows():
         # Match nw_src=... (IPv4) or ipv6_src=... (IPv6)
@@ -60,6 +97,41 @@ def get_blocked_ips():
         if m:
             ips.append(m.group(1))
     return ips
+
+
+def parse_ovs_flow(flow):
+    """Turn a raw ovs-ofctl dump-flows DROP line into a clean, presentable dict.
+
+    Raw example:
+      cookie=0x0, duration=21356.761s, table=0, n_packets=2121, n_bytes=123010,
+      priority=1000,ip,nw_src=192.168.50.200 actions=drop
+
+    Falls back gracefully (None fields) if a value can't be found, so a slightly
+    different OVS version/output format never breaks the dashboard.
+    """
+    def find(pattern, cast=str):
+        m = re.search(pattern, flow)
+        if not m:
+            return None
+        try:
+            return cast(m.group(1))
+        except (TypeError, ValueError):
+            return m.group(1)
+
+    return {
+        "src_ip": find(r"(?:nw_src|ipv6_src)=([^\s,]+)"),
+        "duration_s": find(r"duration=([\d.]+)s", float),
+        "packets": find(r"n_packets=(\d+)", int),
+        "bytes": find(r"n_bytes=(\d+)", int),
+        "priority": find(r"priority=(\d+)", int),
+        "table": find(r"table=(\d+)", int),
+        "raw": flow,
+    }
+
+
+def get_parsed_flows():
+    """Return the current DROP flows as structured, dashboard-friendly dicts."""
+    return [parse_ovs_flow(f) for f in get_ovs_flows()]
 
 
 def get_connected_devices():
@@ -171,6 +243,13 @@ def api_flows():
     return jsonify(get_ovs_flows())
 
 
+@app.route("/api/flows/parsed")
+@login_required
+def api_flows_parsed():
+    """Same DROP flows as /api/flows, but parsed into clean fields for display."""
+    return jsonify(get_parsed_flows())
+
+
 @app.route("/api/status")
 @login_required
 def api_status():
@@ -210,6 +289,34 @@ def api_source_breakdown():
 def api_blocked_breakdown():
     """Return the list of blocked source IPs."""
     return jsonify(get_blocked_ips())
+
+
+@app.route("/api/devices/enterprise")
+@login_required
+def api_devices_enterprise():
+    """Device inventory across all five VLANs, collected from pfSense over SSH.
+
+    This complements /api/devices, which only sees the Server VLAN segment
+    attached to the OVS bridge br-zt.
+    """
+    if pfsense_devices is None:
+        return jsonify({
+            "devices": [], "summary": {},
+            "error": "pfsense_devices module not available",
+        })
+    devices, error = pfsense_devices.get_devices()
+    return jsonify({
+        "devices": devices,
+        "summary": pfsense_devices.summarise(devices),
+        "error": error,
+    })
+
+
+@app.route("/api/kpi")
+@login_required
+def api_kpi():
+    """Sprint 4 KPI test case results, for the viva evidence panel."""
+    return jsonify(KPI_RESULTS)
 
 
 @app.route("/api/analytics/services")
