@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Seredix Smart Calendar</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Seredix Smart Calendar</h1>
+    <nav>
+      <button id="prev" aria-label="Previous month">&lsaquo;</button>
+      <span id="title"></span>
+      <button id="next" aria-label="Next month">&rsaquo;</button>
+      <button id="today">Today</button>
+    </nav>
+  </header>
+  <main>
+    <section id="calendar">
+      <div id="weekdays"></div>
+      <div id="grid"></div>
+    </section>
+    <aside>
+      <h2 id="dayLabel"></h2>
+      <ul id="events"></ul>
+      <form id="form">
+        <input id="evTitle" placeholder="Event title (try: Lunch with Sam 12:30)" required>
+        <input id="evTime" type="time">
+        <button type="submit">Add</button>
+      </form>
+      <p id="hint"></p>
+    </aside>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
